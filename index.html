@@ -33,6 +33,17 @@
         #map {
             flex: 1;
         }
+
+        .info.legend {
+            background-color: white;
+            padding-left: 14px;
+            padding-right: 14px;
+            font-size: 14px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            border: 1px solid lightgray;
+            border-radius: 40px;
+        }
     </style>
 
 </head>
@@ -51,7 +62,12 @@
             center: [55.75371, 37.6198134]
         });
 
-        L.tileLayer.grayscale('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer.grayscale(
+            'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            {
+                attribution: '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            }
+        ).addTo(map);
 
         let pointsArr = [];
         var pointsTemp = [];
@@ -141,6 +157,8 @@
                 success: function (response) {
                     var rows = response.split(/\r?\n|\r/);
 
+                    var curDate = ""
+
                     pointsArr = [];
 
                     var latMax = -999;
@@ -163,6 +181,8 @@
 
                             pointsArr.push([lat, lon])
                             pointsTemp.push([lat, lon, temp])
+
+                            curDate = rowData[10];
                         }
                     }
 
@@ -172,6 +192,16 @@
                     // console.log(lonMin);
                     // console.log(latMax);
                     // console.log(lonMax);
+
+                    var theLegend = L.control({ position: 'topleft' });
+                    theLegend.onAdd = function (map) {
+                        var src = "https://meteoinfo.ru/hmc-output/nowcast3/plegend.png";
+                        var div = L.DomUtil.create('div', 'info legend');
+                        div.innerHTML += 'Данные на ' + curDate + ' МСК';
+                        return div;
+                    };
+                    theLegend.addTo(map);
+
 
                     for (const piont of pointsTemp) {
                         var marker = new L.marker([piont[0], piont[1]], { opacity: 0 });
