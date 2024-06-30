@@ -195,7 +195,6 @@
 
                     var theLegend = L.control({ position: 'topleft' });
                     theLegend.onAdd = function (map) {
-                        var src = "https://meteoinfo.ru/hmc-output/nowcast3/plegend.png";
                         var div = L.DomUtil.create('div', 'info legend');
                         div.innerHTML += 'Данные на ' + curDate + ' МСК';
                         return div;
