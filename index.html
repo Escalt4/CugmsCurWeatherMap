@@ -154,7 +154,7 @@
         function getData() {
             $.ajax({
                 type: "get",
-                url: 'https://cors.eu.org/https://cugms.ru/url',
+                url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://cugms.ru/url'),
                 dataType: "text",
                 async: false,
                 success: function (response) {
