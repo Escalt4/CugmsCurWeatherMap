@@ -155,6 +155,7 @@
             $.ajax({
                 type: "get",
                 url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://cugms.ru/url'),
+                // url: 'https://cugms.ru/url',
                 dataType: "text",
                 async: false,
                 success: function (response) {
@@ -164,10 +165,10 @@
 
                     pointsArr = [];
 
-                    var latMax = -999;
-                    var latMin = 990;
-                    var lonMax = -999;
-                    var lonMin = 990;
+                    var latMax = -99900;
+                    var latMin = 99000;
+                    var lonMax = -99900;
+                    var lonMin = 99000;
 
                     for (var i = 1; i < rows.length; i++) {
                         var rowData = (rows[i].split(';'));
@@ -177,24 +178,27 @@
                         var temp = parseFloat(rowData[5])
 
                         if (!isNaN(lat) && !isNaN(lon) && !isNaN(temp)) {
-                            if (lat > latMax) latMax = lat;
-                            if (lat < latMin) latMin = lat;
-                            if (lon > lonMax) lonMax = lon;
-                            if (lon < lonMin) lonMin = lon;
+                            var kmLat = latToKm(lat);
+                            var kmLon = lonToKm(lon, lat);
 
-                            pointsArr.push([lat, lon])
-                            pointsTemp.push([lat, lon, temp])
+                            if (kmLat > latMax) latMax = kmLat;
+                            if (kmLat < latMin) latMin = kmLat;
+                            if (kmLon > lonMax) lonMax = kmLon;
+                            if (kmLon < lonMin) lonMin = kmLon;
+
+                            pointsArr.push([kmLat, kmLon])
+                            pointsTemp.push([kmLat, kmLon, temp])
 
                             curDate = rowData[10];
                         }
                     }
 
-                    // console.log(pointsArr);
+                    console.log(pointsArr);
 
-                    // console.log(latMin);
-                    // console.log(lonMin);
-                    // console.log(latMax);
-                    // console.log(lonMax);
+                    console.log(latMin);
+                    console.log(lonMin);
+                    console.log(latMax);
+                    console.log(lonMax);
 
                     var theLegend = L.control({ position: 'topleft' });
                     theLegend.onAdd = function (map) {
@@ -205,13 +209,13 @@
                     theLegend.addTo(map);
 
 
-                    for (const piont of pointsTemp) {
-                        var marker = new L.marker([piont[0], piont[1]], { opacity: 0 });
+                    for (const point of pointsTemp) {
+                        var marker = new L.marker([kmToLat(point[0]), kmToLon(point[1], kmToLat(point[0]))], { opacity: 0 });
 
-                        marker.bindTooltip("" + piont[2], {
+                        marker.bindTooltip("" + point[2], {
                             permanent: true,
-                            direction: 'center', 
-                            offset: [0, -28], 
+                            direction: 'center',
+                            offset: [0, -28],
                             className: "my-labels"
                         });
 
@@ -221,7 +225,7 @@
 
                     const delaunay = d3.Delaunay.from(pointsArr);
 
-                    const voronoi = delaunay.voronoi([latMin - 0.5, lonMin - 0.5, latMax + 0.5, lonMax + 0.5]);
+                    const voronoi = delaunay.voronoi([latMin - 25, lonMin - 25, latMax + 25, lonMax + 25]);
 
                     for (let index = 0; index < pointsArr.length; index++) {
                         const cellPolygon = voronoi.cellPolygon(index);
@@ -230,8 +234,13 @@
                             if (voronoi.contains(index, element[0], element[1])) {
                                 var colorEl = colorsArr[Math.round(element[2] + 30.0)];
 
+                                var newCellPolygon = []
+                                cellPolygon.forEach(el => {
+                                    newCellPolygon.push([kmToLat(el[0]), kmToLon(el[1], kmToLat(el[0]))])
+                                });
+
                                 L.polygon(
-                                    cellPolygon,
+                                    newCellPolygon,
                                     {
                                         color: "#000000",
                                         weight: 2,
@@ -246,6 +255,22 @@
             })
         };
 
+        function latToKm(lat) {
+            return 111 * lat;
+        }
+
+        function lonToKm(lon, lat) {
+            return lon * 64.0;
+        }
+
+
+        function kmToLat(km) {
+            return km / 111;
+        }
+
+        function kmToLon(km, lat) {
+            return km / 64.0;
+        }
     </script>
 </body>
 
