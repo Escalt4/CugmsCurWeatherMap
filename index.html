@@ -19,21 +19,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
     <style>
-        body,
-        html {
-            margin: 0;
-            height: 100%;
-            padding: 0;
-        }
-
-        .flex-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
         #map {
-            flex: 1;
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
         }
 
         .info.legend {
@@ -46,23 +37,79 @@
             border: 1px solid lightgray;
             border-radius: 40px;
         }
+
+        .controls {
+            position: relative;
+            bottom: 0px;
+            z-index: 100000;
+            left: 0px;
+        }
+
+        .info-control,
+        .layer-control {
+            position: relative;
+            bottom: 0px;
+            z-index: 100000;
+            left: 0px;
+            width: fit-content;
+            height: fit-content;
+            margin-bottom: 8px;
+
+
+            background-color: white;
+            padding-left: 14px;
+            padding-right: 14px;
+            font-size: 14px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            border: 1px solid lightgray;
+            border-radius: 16px;
+        }
+
+        /* .info-control {
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            width: auto;
+            height: auto;
+        } */
     </style>
 
 </head>
 
 <body>
-    <div class="flex-container">
-        <div id="map"></div>
-        <div id="buttons-container"></div>
+    <!-- <div class="flex-container"> -->
+
+
+    <div id="map"></div>
+
+    <div class="controls">
+        <div class="info-control">
+            <div id="curDate"></div>
+
+        </div>
+        <div class="layer-control">
+            <div>Отображаемые данные:</div>
+            <p onclick="btn_click(0)"><input id="dataType0" name="dataType" type="radio" value="" checked> Температура</p>
+            <p onclick="btn_click(1)"><input id="dataType1" name="dataType" type="radio" value=""> Влажность</p>
+            <p onclick="btn_click(2)"><input id="dataType2" name="dataType" type="radio" value=""> Давление</p>
+            <p onclick="btn_click(3)"><input id="dataType3" name="dataType" type="radio" value=""> Скорость ветра</p>
+        </div>
     </div>
 
     <script>
+        function btn_click(num) {
+            document.getElementById("dataType" + num).checked = true;
+
+            drawData(num);
+        }
+
         var map = L.map('map', {
             zoomSnap: 0,
             zoom: 9,
             zoomControl: false,
             fullscreenControl: true,
-            center: [55.75371, 37.6198134]
+            center: [55.7537, 37.6198]
         });
 
         L.tileLayer.grayscale(
@@ -72,8 +119,8 @@
             }
         ).addTo(map);
 
-        let pointsArr = [];
-        var pointsTemp = [];
+        var pointsArr = [];
+
 
         var colorsArr = [
             "62008f",
@@ -149,13 +196,16 @@
             "cc0f80"
         ];
 
-        getData();
 
-        function getData() {
+        window.onload = function () {
+            updateWeatherData();
+        };
+
+        function updateWeatherData() {
             $.ajax({
                 type: "get",
-                url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://cugms.ru/url'),
-                // url: 'https://cugms.ru/url',
+                // url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://cugms.ru/url'),
+                url: 'https://cugms.ru/url',
                 dataType: "text",
                 async: false,
                 success: function (response) {
@@ -165,111 +215,158 @@
 
                     pointsArr = [];
 
-                    var latMax = -99900;
-                    var latMin = 99000;
-                    var lonMax = -99900;
-                    var lonMin = 99000;
-
                     for (var i = 1; i < rows.length; i++) {
                         var rowData = (rows[i].split(';'));
 
                         var lat = parseFloat(rowData[1]);
                         var lon = parseFloat(rowData[2]);
-                        var temp = parseFloat(rowData[5])
+                        var temp = parseFloat(new String(rowData[5]).slice(0, -1));
+                        var humidity = parseFloat(new String(rowData[6]).slice(0, -2));
+                        var pressure = parseFloat(rowData[7]);
+                        if (rowData[8] == "Штиль")
+                            var wind = 0;
+                        else
+                            var wind = parseFloat(new String(rowData[8]).slice(0, -3));
 
-                        if (!isNaN(lat) && !isNaN(lon) && !isNaN(temp)) {
-                            var kmLat = latToKm(lat);
-                            var kmLon = lonToKm(lon, lat);
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            var xy = toXY(lat, lon);
 
-                            if (kmLat > latMax) latMax = kmLat;
-                            if (kmLat < latMin) latMin = kmLat;
-                            if (kmLon > lonMax) lonMax = kmLon;
-                            if (kmLon < lonMin) lonMin = kmLon;
+                            var kmLat = xy[0];
+                            var kmLon = xy[1];
 
-                            pointsArr.push([kmLat, kmLon])
-                            pointsTemp.push([kmLat, kmLon, temp])
+                            pointsArr.push([kmLat, kmLon, temp, humidity, pressure, wind])
 
                             curDate = rowData[10];
                         }
                     }
 
-                    console.log(pointsArr);
+                    document.getElementById("curDate").textContent = 'Данные на ' + curDate + ' МСК';
 
-                    console.log(latMin);
-                    console.log(lonMin);
-                    console.log(latMax);
-                    console.log(lonMax);
-
-                    var theLegend = L.control({ position: 'topleft' });
-                    theLegend.onAdd = function (map) {
-                        var div = L.DomUtil.create('div', 'info legend');
-                        div.innerHTML += 'Данные на ' + curDate + ' МСК';
-                        return div;
-                    };
-                    theLegend.addTo(map);
-
-
-                    for (const point of pointsTemp) {
-                        var marker = new L.marker([kmToLat(point[0]), kmToLon(point[1], kmToLat(point[0]))], { opacity: 0 });
-
-                        marker.bindTooltip("" + point[2], {
-                            permanent: true,
-                            direction: 'center',
-                            offset: [0, -28],
-                            className: "my-labels"
-                        });
-
-                        marker.addTo(map);
-
-                    }
-
-                    const delaunay = d3.Delaunay.from(pointsArr);
-
-                    const voronoi = delaunay.voronoi([latMin - 25, lonMin - 25, latMax + 25, lonMax + 25]);
-
-                    for (let index = 0; index < pointsArr.length; index++) {
-                        const cellPolygon = voronoi.cellPolygon(index);
-
-                        pointsTemp.forEach(element => {
-                            if (voronoi.contains(index, element[0], element[1])) {
-                                var colorEl = colorsArr[Math.round(element[2] + 30.0)];
-
-                                var newCellPolygon = []
-                                cellPolygon.forEach(el => {
-                                    newCellPolygon.push([kmToLat(el[0]), kmToLon(el[1], kmToLat(el[0]))])
-                                });
-
-                                L.polygon(
-                                    newCellPolygon,
-                                    {
-                                        color: "#000000",
-                                        weight: 2,
-                                        fillColor: "#" + colorEl,
-                                        fillOpacity: 0.3
-                                    }
-                                ).addTo(map);
-                            }
-                        });
-                    }
+                    drawData(0);
                 }
             })
         };
 
-        function latToKm(lat) {
-            return 111 * lat;
+
+        var elemOnMap = [];
+
+        function drawData(dataType) {
+            elemOnMap.forEach(element => {
+                element.remove();
+            });
+
+            for (const element of pointsArr) {
+                if (!isNaN(parseFloat(element[dataType + 2]))) {
+                    var latLon = toLatLon(element[0], element[1]);
+
+                    var marker = new L.marker([latLon[0], latLon[1]], { opacity: 0 });
+
+                    marker.bindTooltip("" + element[dataType + 2], {
+                        permanent: true,
+                        direction: 'center',
+                        offset: [0, -28],
+                        className: "my-labels"
+                    });
+
+                    marker.addTo(map);
+
+                    elemOnMap.push(marker);
+                }
+            }
+
+            var pointsData = []
+            var pointsCoord = []
+            var latMax = -99900;
+            var latMin = 99000;
+            var lonMax = -99900;
+            var lonMin = 99000;
+            pointsArr.forEach(element => {
+                if (!isNaN(parseFloat(element[dataType + 2]))) {
+                    var kmLat = element[0];
+                    var kmLon = element[1];
+                    latMax = kmLat;
+                    latMin = kmLat;
+                    lonMax = kmLon;
+                    lonMin = kmLon;
+                }
+            });
+
+            pointsArr.forEach(element => {
+                if (!isNaN(parseFloat(element[dataType + 2]))) {
+                    var kmLat = element[0];
+                    var kmLon = element[1];
+
+                    if (kmLat > latMax) latMax = kmLat;
+                    if (kmLat < latMin) latMin = kmLat;
+                    if (kmLon > lonMax) lonMax = kmLon;
+                    if (kmLon < lonMin) lonMin = kmLon;
+
+                    pointsData.push([kmLat, kmLon, parseFloat(element[dataType + 2])])
+                    pointsCoord.push([kmLat, kmLon])
+                }
+            });
+
+            const delaunay = d3.Delaunay.from(pointsCoord);
+
+            const voronoi = delaunay.voronoi([latMin - 25, lonMin - 25, latMax + 25, lonMax + 25]);
+
+            for (let index = 0; index < pointsCoord.length; index++) {
+                const cellPolygon = voronoi.cellPolygon(index);
+
+                pointsData.forEach(element => {
+                    if (voronoi.contains(index, element[0], element[1])) {
+                        if (dataType == 0) {
+                            var colorEl = colorsArr[Math.round(element[2] + 30.0)];
+                        } else if (dataType == 1) {
+                            var colorEl = new String(d3.color(d3.rgb(255.0 - element[2] / 100.0 * 255.0, 255.0 - element[2] / 100.0 * 255.0, 255.0)).formatHex()).substring(1);
+                        }else{
+                            colorEl = "00000000"
+                        }
+
+                        var newCellPolygon = []
+                        cellPolygon.forEach(el => {
+                            var latLon = toLatLon(el[0], el[1]);
+                            newCellPolygon.push([latLon[0], latLon[1]])
+                        });
+
+                        var polygon = L.polygon(
+                            newCellPolygon,
+                            {
+                                color: "#000000",
+                                weight: 2,
+                                fillColor: "#" + colorEl,
+                                fillOpacity: 0.3
+                            }
+                        );
+                        polygon.addTo(map);
+
+
+                        elemOnMap.push(polygon);
+                    }
+                });
+            }
         }
 
-        function lonToKm(lon, lat) {
-            return lon * 64.0;
+
+
+        function toXY(lat, lon, R = 6371) {
+            const phi = lat * Math.PI / 180; // convert latitude to radians
+            const lambda = lon * Math.PI / 180; // convert longitude to radians
+
+            const x = R * lambda;
+            const y = R * Math.log(Math.tan(Math.PI / 4 + phi / 2));
+
+            return [x, y];
         }
 
+        function toLatLon(x, y, R = 6371) {
+            const lambda = x / R;
+            const phi = 2 * Math.atan(Math.exp(y / R)) - Math.PI / 2;
 
-        function kmToLat(km) {
-            return km / 111;
-        }
+            const lat = phi * 180 / Math.PI;
+            const lon = lambda * 180 / Math.PI;
 
-        function kmToLon(km, lat) {
-            return km / 64.0;
+            return [lat, lon];
         }
     </script>
 </body>
